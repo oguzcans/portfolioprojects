@@ -1,1 +1,126 @@
 
+CREATE TABLE appleStore_description_combined AS
+SELECT * FROM appleStore_description1
+UNION ALL
+SELECT * FROM appleStore_description2
+UNION ALL
+SELECT * FROM appleStore_description3
+UNION ALL
+SELECT * FROM appleStore_description4;
+
+-- Who is our stakeholder?
+
+-- Imagine our stakeholder is an app developer
+-- and they are interested in:
+-- What app categories are most popular?
+-- What price should they set?
+-- How can they maximize user ratings?
+
+
+-- Exploratory Data Analysis (EDA)
+-- check the number of unique apps in both tables 
+
+select count(distinct id) as UniqueAppIDs
+From AppleStore;
+--7197
+
+select count(distinct id) as UniqueAppIDs
+From appleStore_description_combined;
+--7197
+
+-- check for any missing values in key fields 
+
+SELECT COUNT(*) as MissingValues
+FROM AppleStore
+where track_name is null or user_rating is null or prime_genre IS NULL;
+--0
+
+SELECT COUNT(*) as MissingValues
+FROM appleStore_description_combined
+where track_name is null or user_rating is null or prime_genre IS NULL;
+--0
+
+-- Find out the number of apps per gender
+
+SELECT prime_genre, count(*) as NumApps
+FROM AppleStore
+GROUP BY prime_genre
+ORDER BY NumApps DESC;
+
+-- Get an overview of the apps' ratings
+
+SELECT min(user_rating) AS MinRating,
+		max(user_rating) as MaxRating,
+        avg(user_rating) AS AvgRating
+FROM AppleStore;
+
+-- Find interesting insights 
+SELECT CASE
+		WHEN price > 0 THEN 'Paid'
+    	ELSE 'Free'
+    END AS App_Type,
+    avg(user_rating) AS Avg_Rating
+FROM AppleStore
+GROUP BY App_Type;
+-- free 3,37 | paid 3,72
+
+-- Check if apps with more supported languages have higher ratings
+
+SELECT CASE
+			WHEN lang_num < 10 THEN '<10 languages'
+            WHEN lang_num BETWEEN 10 and 30 THEN '10-30 languages'
+            ELSE '>30 languages'
+        END AS language_bucket,
+        avg(user_rating) as Avg_Rating
+FROM AppleStore
+GROUP BY language_bucket
+ORDER BY Avg_Rating DESC;
+-- stakeholders do not necessarily need to work on many languages
+
+
+-- Check genres with low ratings
+SELECT prime_genre,
+		avg(user_rating) AS Avg_Rating
+FROM AppleStore
+GROUP BY prime_genre
+ORDER BY Avg_Rating ASC
+LIMIT 10;
+-- we see least satisfied apps, so that maybe stakeholders can focus there
+
+-- Check if there is a correlation between the length of the app description and the user rating
+
+SELECT CASE 
+			WHEN length(d.app_desc) <500 THEN 'Short'
+            WHEN length(d.app_desc) BETWEEN 500 and 1000 THEN 'Medium'
+            ELSE 'Long'
+       END AS description_length_bucket,
+       AVG(a.user_rating) as average_rating,
+       COUNT(DISTINCT a.id) AS number_of_apps
+FROM AppleStore AS a
+JOIN appleStore_description_combined AS d 
+ON a.id = d.id
+GROUP BY description_length_bucket;
+-- The longer the description, higher the rating 
+
+-- Check the top-rated 3 apps for each genre
+SELECT 
+	prime_genre,
+    track_name,
+    user_rating
+FROM ( SELECT 
+      prime_genre,
+      track_name,
+      user_rating, 
+      RANK() OVER(PARTITION BY prime_genre ORDER BY user_rating DESC,rating_count_tot DESC) AS rank
+      FROM AppleStore) as A
+WHERE a.rank <= 3; 
+
+
+**Conclusions**
+1. Paid Apps have bettre ratings
+2. Apps supporting between 10 and 30 languages have better ratings
+3. Finance and Book apps have low ratings, on averaege
+4. Apps with a longer description have better ratings
+
+
+Source: https://www.youtube.com/watch?v=EKOWoInn46A 
